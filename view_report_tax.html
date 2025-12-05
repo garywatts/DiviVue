@@ -1,0 +1,47 @@
+<main class="content">
+  <section class="card">
+    <h2>Taxable Income (Dividends + Franking)</h2>
+    <div class="subheading" id="tax-range-summary"></div>
+    <form id="tax-form" class="inline-form">
+      <div class="form-row">
+        <label for="tax-range">Range</label>
+        <select id="tax-range" name="range">
+          <option value="this-fy">This financial year</option>
+          <option value="last-fy">Last financial year</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Start Date</label>
+        <input type="date" name="start" required />
+      </div>
+      <div class="form-row">
+        <label>End Date</label>
+        <input type="date" name="end" required />
+      </div>
+      <div class="form-actions">
+        <button type="submit">Generate</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h3>Summary</h3>
+    <table class="table">
+      <tbody>
+        <tr>
+          <th>Total Dividends</th>
+          <td id="tax-dividends">-</td>
+        </tr>
+        <tr>
+          <th>Franking Credits</th>
+          <td id="tax-franking">-</td>
+        </tr>
+        <tr>
+          <th>Unfranked Portion</th>
+          <td id="tax-unfranked">-</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</main>

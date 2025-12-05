@@ -1,0 +1,190 @@
+<style>
+/* styles.css - light theme for AU Portfolio & Dividend Tracker */
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #f5f7fb;
+  color: #222;
+}
+
+.top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  height: 56px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e1e4eb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.nav-left {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.nav-links a {
+  margin-left: 1rem;
+  text-decoration: none;
+  color: #444;
+  font-size: 0.9rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.nav-links a:hover {
+  background-color: #edf2ff;
+}
+
+.nav-links a.active {
+  background-color: #4c6fff;
+  color: white;
+}
+
+.content {
+  max-width: 1100px;
+  margin: 1.5rem auto;
+  padding: 0 1rem 2rem;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.card {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  margin-bottom: 1.5rem;
+}
+
+.card h2,
+.card h3,
+.card h4 {
+  margin-top: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.table th,
+.table td {
+  padding: 0.5rem 0.5rem;
+  border-bottom: 1px solid #e4e7f0;
+}
+
+.table th {
+  text-align: left;
+  background-color: #f7f8fc;
+}
+
+.table tr:nth-child(even) td {
+  background-color: #fafbff;
+}
+
+.table .numeric {
+  text-align: right;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.75rem;
+}
+
+.form-row label {
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
+  color: #555;
+}
+
+.form-row input,
+.form-row select {
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #cbd2e6;
+  font-size: 0.85rem;
+}
+
+.form-row input:focus,
+.form-row select:focus {
+  outline: none;
+  border-color: #4c6fff;
+  box-shadow: 0 0 0 1px rgba(76, 111, 255, 0.25);
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+button[type='submit'],
+button {
+  background-color: #4c6fff;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #3b5bdb;
+}
+
+.status {
+  font-size: 0.8rem;
+  color: #555;
+}
+
+.chart-placeholder {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #777;
+  font-size: 0.85rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.inline-form .form-row {
+  margin-bottom: 0;
+}
+
+@media (max-width: 600px) {
+  .nav-links {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .nav-links a {
+    margin: 0.1rem 0.25rem;
+  }
+}
+</style>

@@ -1,0 +1,141 @@
+<main class="content">
+  <section class="card">
+    <h2>Stock Details</h2>
+    <div class="form-row">
+      <label>Select Stock</label>
+      <select id="stock-select"></select>
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>Performance vs ASX 200</h3>
+    <div class="form-row">
+      <label for="stock-chart-range">Range</label>
+      <select id="stock-chart-range">
+        <option value="all">Since first purchase</option>
+        <option value="5y">Last 5 years</option>
+        <option value="2y">Last 2 years</option>
+        <option value="1y">Last 1 year</option>
+        <option value="6m">Last 6 months</option>
+      </select>
+    </div>
+    <div id="stock-chart" style="height:300px;"></div>
+  </section>
+
+  <section class="card" id="stock-summary" style="display:none;">
+    <h3 id="stock-title"></h3>
+    <div class="summary-grid">
+      <div>
+        <strong>Current value</strong>
+        <div id="sum-current-value"></div>
+      </div>
+      <div>
+        <strong>Total quantity</strong>
+        <div id="sum-qty"></div>
+      </div>
+      <div>
+        <strong>Cost base</strong>
+        <div id="sum-cost-base"></div>
+      </div>
+      <div>
+        <strong>Cost base / share</strong>
+        <div id="sum-cost-base-ps"></div>
+      </div>
+      <div>
+        <strong>Capital gain</strong>
+        <div id="sum-capital-gain"></div>
+      </div>
+      <div>
+        <strong>Dividends (incl. franking)</strong>
+        <div id="sum-dividends-total"></div>
+      </div>
+      <div>
+        <strong>Total return</strong>
+        <div id="sum-total-return"></div>
+      </div>
+      <div>
+        <strong>P/E ratio</strong>
+        <div id="sum-pe-ratio"></div>
+      </div>
+    </div>
+    <div class="form-row" id="stock-summary-tabs">
+      <label>View</label>
+      <div>
+        <button type="button" class="tab-button active" data-mode="lifetime">Lifetime</button>
+        <button type="button" class="tab-button" data-mode="annualised">Annualised (p.a.)</button>
+      </div>
+    </div>
+    <div class="summary-grid" id="stock-summary-lifetime">
+      <div>
+        <strong>Capital gain %</strong>
+        <div id="sum-capital-gain-pct" class="subtext"></div>
+      </div>
+      <div>
+        <strong>Dividends %</strong>
+        <div id="sum-dividends-pct" class="subtext"></div>
+      </div>
+      <div>
+        <strong>Total return %</strong>
+        <div id="sum-total-return-pct" class="subtext"></div>
+      </div>
+    </div>
+    <div class="summary-grid" id="stock-summary-annualised" style="display:none;">
+      <div>
+        <strong>Capital gain % p.a.</strong>
+        <div id="sum-capital-gain-pct-annual" class="subtext"></div>
+      </div>
+      <div>
+        <strong>Dividends % p.a.</strong>
+        <div id="sum-dividends-pct-annual" class="subtext"></div>
+      </div>
+      <div>
+        <strong>Total return % p.a.</strong>
+        <div id="sum-total-return-pct-annual" class="subtext"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>Trades &amp; Adjustments</h3>
+    <div class="form-row">
+      <label for="stock-sort-order">Sort by date</label>
+      <select id="stock-sort-order">
+        <option value="desc">Newest first</option>
+        <option value="asc">Oldest first</option>
+      </select>
+    </div>
+    <table class="table" id="stock-trades-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th class="numeric">Qty</th>
+          <th class="numeric">Price</th>
+          <th class="numeric">Fees</th>
+          <th class="numeric">Total Cost</th>
+          <th class="numeric">Sell</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="status" id="stock-trades-debug"></div>
+  </section>
+
+  <section class="card">
+    <h3>Dividends</h3>
+    <table class="table" id="stock-divs-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th class="numeric">Div/Share</th>
+          <th class="numeric">Gross Payment</th>
+          <th class="numeric">Franking Credits</th>
+          <th class="numeric">Unfranked</th>
+          <th class="numeric">Net Payment</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="status" id="stock-divs-debug"></div>
+  </section>
+</main>

@@ -1,0 +1,53 @@
+<main class="content">
+  <section class="cards-grid">
+    <div class="card" id="card-total-value">
+      <h2>Total Portfolio Value</h2>
+      <p id="total-value">Loading...</p>
+    </div>
+    <div class="card" id="card-total-gain">
+      <h2>Total Gain / Loss</h2>
+      <p id="total-gain">Loading...</p>
+    </div>
+    <div class="card" id="card-dividends-ytd">
+      <h2>Dividends</h2>
+      <p id="dividends-ytd">Loading...</p>
+      <div class="form-row">
+        <label for="dividends-range">Range</label>
+        <select id="dividends-range">
+          <option value="fy">This financial year</option>
+          <option value="last-fy">Last financial year</option>
+          <option value="all">All time</option>
+        </select>
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <h2>Value of My Investments Over Time</h2>
+    <div class="form-row">
+      <label for="portfolio-series-mode">Series</label>
+      <select id="portfolio-series-mode">
+        <option value="net">Net invested</option>
+        <option value="market">Market value (using prices)</option>
+      </select>
+    </div>
+    <div id="portfolio-history-chart" style="height:300px;"></div>
+  </section>
+
+  <section class="card">
+    <h2>My Investments</h2>
+    <table class="table" id="investments-table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th class="numeric">Avg Price</th>
+          <th class="numeric">Qty</th>
+          <th class="numeric">Value</th>
+          <th class="numeric">Capital Gains</th>
+          <th class="numeric">Dividends</th>
+          <th class="numeric">Return</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</main>

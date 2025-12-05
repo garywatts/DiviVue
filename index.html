@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <title>DiviVue - AU Portfolio & Dividend Tracker</title>
+    <script src="https://www.gstatic.com/charts/loader.js"></script>
+    <?!= include('styles'); ?>
+  </head>
+  <body>
+    <header class="top-nav">
+      <div class="nav-left">DiviVue -AU Portfolio &amp; Dividend Tracker</div>
+      <nav class="nav-links">
+        <a href="#" data-view="index" class="active">Dashboard</a>
+        <a href="#" data-view="addTrade">Add Trade / Dividend</a>
+        <a href="#" data-view="stockDetails">Stock Details</a>
+        <a href="#" data-view="report_tax">Taxable Income</a>
+        <a href="#" data-view="report_cgt">Capital Gains</a>
+        <a href="#" data-view="about">About</a>
+      </nav>
+    </header>
+
+    <div id="view-container"></div>
+
+    <script>
+      google.charts.load('current', { packages: ['corechart'] });
+
+      document.addEventListener('DOMContentLoaded', function () {
+        // Initial view
+        loadView('index');
+
+        // Wire up navigation for SPA
+        document.querySelectorAll('.nav-links a[data-view]').forEach(function (link) {
+          link.addEventListener('click', function (e) {
+            e.preventDefault();
+            var view = this.getAttribute('data-view');
+            setActiveNav(this);
+            loadView(view);
+          });
+        });
+      });
+
+      function loadView(viewName) {
+        google.script.run.withSuccessHandler(function (html) {
+          var container = document.getElementById('view-container');
+          container.innerHTML = html;
+          initialiseView(viewName);
+        }).getView(viewName);
+      }
+
+      function drawLineChart(elementId, series, vAxisTitle) {
+        if (!series || !series.length) return;
+        var el = document.getElementById(elementId);
+        if (!el) return;
+
+        var draw = function () {
+          var data = google.visualization.arrayToDataTable(series);
+          var options = {
+            legend: { position: 'bottom' },
+            hAxis: { title: 'Date' },
+            vAxis: { title: vAxisTitle || 'Indexed to 100' },
+            chartArea: { left: 60, top: 20, right: 10, bottom: 60 }
+          };
+          var chart = new google.visualization.LineChart(el);
+          chart.draw(data, options);
+        };
+
+        if (google.visualization && google.visualization.LineChart) {
+          draw();
+        } else {
+          google.charts.setOnLoadCallback(draw);
+        }
+      }
+
+      function redrawStockChart() {
+        var fullSeries = window._stockChartSeries;
+        if (!Array.isArray(fullSeries) || fullSeries.length <= 1) {
+          return;
+        }
+
+        var rangeEl = document.getElementById('stock-chart-range');
+        var range = rangeEl ? rangeEl.value : 'all';
+
+        var header = fullSeries[0];
+        var rows = fullSeries.slice(1);
+
+        // Determine the last available data date in the series so that
+        // ranges are anchored to actual data, not "today". This avoids
+        // empty windows when History stops before the current date.
+        var lastDataDate = null;
+        if (rows.length > 0) {
+          var lastRow = rows[rows.length - 1];
+          lastDataDate = new Date(lastRow[0] + 'T00:00:00');
+        }
+
+        var cutoffDate = null;
+        if (lastDataDate) {
+          if (range === '5y') {
+            cutoffDate = new Date(lastDataDate.getFullYear() - 5, lastDataDate.getMonth(), lastDataDate.getDate());
+          } else if (range === '2y') {
+            cutoffDate = new Date(lastDataDate.getFullYear() - 2, lastDataDate.getMonth(), lastDataDate.getDate());
+          } else if (range === '1y') {
+            cutoffDate = new Date(lastDataDate.getFullYear() - 1, lastDataDate.getMonth(), lastDataDate.getDate());
+          } else if (range === '6m') {
+            cutoffDate = new Date(lastDataDate.getFullYear(), lastDataDate.getMonth() - 6, lastDataDate.getDate());
+          }
+        }
+
+        // Clamp cutoff to firstTradeDate so we never go before the
+        // user's actual first purchase for this stock.
+        if (window._stockFirstTradeDate) {
+          var firstDateObj = new Date(window._stockFirstTradeDate + 'T00:00:00');
+          if (!cutoffDate || firstDateObj > cutoffDate) {
+            cutoffDate = firstDateObj;
+          }
+        }
+
+        var filtered = rows;
+        if (cutoffDate) {
+          filtered = rows.filter(function (r) {
+            // r[0] is a yyyy-MM-dd string from the backend
+            var d = new Date(r[0] + 'T00:00:00');
+            return d >= cutoffDate;
+          });
+        }
+
+        // If the filtered range ends up empty (e.g. no data within the
+        // last 1y/6m window), fall back to the full series so we never
+        // hand Google Charts only a header row (which can trigger type
+        // errors for the domain axis).
+        if (!filtered || filtered.length === 0) {
+          filtered = rows;
+        }
+
+        var finalSeries = [header].concat(filtered);
+        drawLineChart('stock-chart', finalSeries, 'Indexed to 100');
+      }
+
+      function setActiveNav(activeLink) {
+        document.querySelectorAll('.nav-links a').forEach(function (a) {
+          a.classList.toggle('active', a === activeLink);
+        });
+      }
+
+      function initialiseView(viewName) {
+        var inits = {
+          index: initIndexView,
+          addTrade: initAddTradeView,
+          stockDetails: initStockDetailsView,
+          report_tax: initReportTaxView,
+          report_cgt: initReportCgtView,
+          about: initAboutView
+        };
+
+        var fn = inits[viewName];
+        if (typeof fn === 'function') {
+          fn();
+        }
+      }
+
+      // === View-specific initialisers ===
+
+      function initIndexView() {
+        google.script.run.withSuccessHandler(renderSummary).getDashboardSummary();
+        google.script.run.withSuccessHandler(renderInvestments).getInvestmentsSummary();
+
+        var divRangeEl = document.getElementById('dividends-range');
+        if (divRangeEl) {
+          divRangeEl.addEventListener('change', function () {
+            updateDividendsDisplay();
+          });
+        }
+        var modeEl = document.getElementById('portfolio-series-mode');
+        if (modeEl) {
+          modeEl.addEventListener('change', function () {
+            redrawPortfolioHistoryChart();
+          });
+        }
+
+        google.script.run
+          .withSuccessHandler(function (series) {
+            window._portfolioNetSeries = Array.isArray(series) ? series : [];
+            redrawPortfolioHistoryChart();
+          })
+          .getPortfolioNetInvestedSeries();
+
+        google.script.run
+          .withSuccessHandler(function (series) {
+            window._portfolioMarketSeries = Array.isArray(series) ? series : [];
+            redrawPortfolioHistoryChart();
+          })
+          .getPortfolioMarketValueSeries();
+      }
+
+      function renderSummary(summary) {
+        var totalEl = document.getElementById('total-value');
+        if (!totalEl) return;
+        document.getElementById('total-value').textContent = formatCurrency(summary.totalPortfolioValue);
+        document.getElementById('total-gain').textContent = formatCurrency(summary.totalGainLoss);
+        window._dividendsAllTime = Number(summary.dividendsAllTime || 0);
+        window._dividendsCurrentFy = Number(summary.dividendsCurrentFy || 0);
+        window._dividendsLastFy = Number(summary.dividendsLastFy || 0);
+        updateDividendsDisplay();
+      }
+
+      function updateDividendsDisplay() {
+        var el = document.getElementById('dividends-ytd');
+        if (!el) return;
+
+        var rangeEl = document.getElementById('dividends-range');
+        var mode = rangeEl ? rangeEl.value : 'fy';
+
+        var value;
+        if (mode === 'all') {
+          value = window._dividendsAllTime || 0;
+        } else if (mode === 'last-fy') {
+          value = window._dividendsLastFy || 0;
+        } else {
+          value = window._dividendsCurrentFy || 0;
+        }
+
+        el.textContent = formatCurrency(value);
+      }
+
+      function redrawPortfolioHistoryChart() {
+        var el = document.getElementById('portfolio-history-chart');
+        if (!el) return;
+
+        var modeEl = document.getElementById('portfolio-series-mode');
+        var mode = modeEl ? modeEl.value : 'net';
+
+        var series = [];
+        var vTitle = '';
+        if (mode === 'market' && Array.isArray(window._portfolioMarketSeries) && window._portfolioMarketSeries.length > 1) {
+          series = window._portfolioMarketSeries;
+          vTitle = 'Market value';
+        } else if (Array.isArray(window._portfolioNetSeries) && window._portfolioNetSeries.length > 1) {
+          series = window._portfolioNetSeries;
+          vTitle = 'Net invested';
+        }
+
+        if (series.length > 1) {
+          drawLineChart('portfolio-history-chart', series, vTitle);
+        }
+      }
+
+      function renderInvestments(list) {
+        var tbody = document.querySelector('#investments-table tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        (list || []).forEach(function (item) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + item.code + '</td>' +
+            '<td class="numeric">' + formatCurrency(item.avgPrice) + '</td>' +
+            '<td class="numeric">' + (item.qty || 0) + '</td>' +
+            '<td class="numeric">' + formatCurrency(item.value) + '</td>' +
+            '<td class="numeric">' + formatCurrency(item.capitalGains) + '</td>' +
+            '<td class="numeric">' + formatCurrency(item.dividends) + '</td>' +
+            '<td class="numeric">' + formatCurrency(item.returnTotal) + '</td>';
+          tbody.appendChild(tr);
+        });
+      }
+
+      // initDashboardView/renderHoldings removed; Holdings view is now folded
+      // into the main Dashboard and Stock Details pages.
+
+      function initAddTradeView() {
+        var form = document.getElementById('trade-form');
+        if (!form) return;
+
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+
+          var formData = new FormData(form);
+          var trade = {};
+          formData.forEach(function (value, key) {
+            trade[key] = value;
+          });
+
+          var statusEl = document.getElementById('status-message');
+          if (statusEl) statusEl.textContent = 'Saving...';
+
+          google.script.run
+            .withSuccessHandler(function (result) {
+              if (result && result.success) {
+                if (statusEl) statusEl.textContent = 'Saved.';
+                form.reset();
+              } else {
+                if (statusEl) statusEl.textContent = 'Error saving. Check logs.';
+              }
+            })
+            .withFailureHandler(function (err) {
+              if (statusEl) statusEl.textContent = 'Error: ' + err.message;
+            })
+            .appendTrade(trade);
+        });
+      }
+
+      function initStockDetailsView() {
+        google.script.run.withSuccessHandler(populateStockSelect).getAllStockCodes();
+
+        // Wire up summary tabs if present
+        var tabsContainer = document.getElementById('stock-summary-tabs');
+        if (tabsContainer) {
+          tabsContainer.addEventListener('click', function (e) {
+            var btn = e.target;
+            if (!btn || !btn.dataset || !btn.dataset.mode) return;
+            var mode = btn.dataset.mode;
+
+            document.querySelectorAll('#stock-summary-tabs .tab-button').forEach(function (b) {
+              b.classList.toggle('active', b === btn);
+            });
+
+            var lifetime = document.getElementById('stock-summary-lifetime');
+            var annualised = document.getElementById('stock-summary-annualised');
+            if (!lifetime || !annualised) return;
+            if (mode === 'annualised') {
+              lifetime.style.display = 'none';
+              annualised.style.display = 'grid';
+            } else {
+              lifetime.style.display = 'grid';
+              annualised.style.display = 'none';
+            }
+          });
+        }
+
+        // Wire up chart range selector if present
+        var rangeEl = document.getElementById('stock-chart-range');
+        if (rangeEl) {
+          rangeEl.addEventListener('change', function () {
+            redrawStockChart();
+          });
+        }
+      }
+
+      function populateStockSelect(stockCodes) {
+        var select = document.getElementById('stock-select');
+        if (!select) return;
+        select.innerHTML = '';
+
+        var defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = 'Select a stock';
+        select.appendChild(defaultOpt);
+
+        (stockCodes || []).forEach(function (code) {
+          var clean = (code || '').toString().trim();
+          if (!clean) return;
+          var opt = document.createElement('option');
+          opt.value = clean;
+          opt.textContent = clean;
+          select.appendChild(opt);
+        });
+
+        select.addEventListener('change', function () {
+          if (!this.value) return;
+          loadStockDetails(this.value);
+        });
+      }
+
+      function loadStockDetails(code) {
+        // First load and show the summary card for the selected stock
+        google.script.run.withSuccessHandler(function (summary) {
+          var summarySection = document.getElementById('stock-summary');
+          if (!summarySection) return;
+
+          if (!summary) {
+            // No summary for this code; hide the card and exit gracefully
+            summarySection.style.display = 'none';
+            console.log('StockDetails: no summary returned for', code);
+            return;
+          }
+
+          summarySection.style.display = 'block';
+          document.getElementById('stock-title').textContent = summary.stockCode;
+
+          // Core amounts
+          document.getElementById('sum-current-value').textContent = formatCurrency(summary.currentValue || 0);
+          document.getElementById('sum-qty').textContent = summary.totalQty || 0;
+          document.getElementById('sum-cost-base').textContent = formatCurrency(summary.costBase || 0);
+          document.getElementById('sum-cost-base-ps').textContent = formatCurrency(summary.costBasePerShare || 0);
+
+          // Capital gain
+          document.getElementById('sum-capital-gain').textContent = formatCurrency(summary.capitalGain || 0);
+          var cgPct = (summary.capitalGainPct || 0) * 100;
+          document.getElementById('sum-capital-gain-pct').textContent =
+            isNaN(cgPct) ? '' : (cgPct.toFixed(2) + '%');
+
+          // Dividends and total return
+          document.getElementById('sum-dividends-total').textContent = formatCurrency(summary.dividendsTotal || 0);
+          var divPct = (summary.dividendsPct || 0) * 100;
+          var divPctEl = document.getElementById('sum-dividends-pct');
+          if (divPctEl) {
+            divPctEl.textContent = isNaN(divPct) ? '' : (divPct.toFixed(2) + '%');
+          }
+          document.getElementById('sum-total-return').textContent = formatCurrency(summary.totalReturn || 0);
+          var trPct = (summary.totalReturnPct || 0) * 100;
+          document.getElementById('sum-total-return-pct').textContent =
+            isNaN(trPct) ? '' : (trPct.toFixed(2) + '%');
+
+          // Annualised (p.a.) percentages
+          var cgPctAnn = (summary.capitalGainPctAnnual || 0) * 100;
+          var divPctAnn = (summary.dividendsPctAnnual || 0) * 100;
+          var trPctAnn = (summary.totalReturnPctAnnual || 0) * 100;
+          var cgAnnEl = document.getElementById('sum-capital-gain-pct-annual');
+          var divAnnEl = document.getElementById('sum-dividends-pct-annual');
+          var trAnnEl = document.getElementById('sum-total-return-pct-annual');
+          if (cgAnnEl) {
+            cgAnnEl.textContent = isNaN(cgPctAnn) ? '' : (cgPctAnn.toFixed(2) + '%');
+          }
+          if (divAnnEl) {
+            divAnnEl.textContent = isNaN(divPctAnn) ? '' : (divPctAnn.toFixed(2) + '%');
+          }
+          if (trAnnEl) {
+            trAnnEl.textContent = isNaN(trPctAnn) ? '' : (trPctAnn.toFixed(2) + '%');
+          }
+
+          // Latest price and P/E
+          // Keep latest price available for potential future display
+          var latestPrice = summary.latestPrice || 0;
+          var pe = summary.peRatio || 0;
+          var latestPriceEl = document.getElementById('latest-price');
+          if (latestPriceEl) {
+            latestPriceEl.textContent = formatCurrency(latestPrice);
+          }
+          document.getElementById('sum-pe-ratio').textContent = pe > 0 ? pe.toFixed(2) : 'N/A';
+
+          // Cache first trade date for range filters
+          window._stockFirstTradeDate = summary.firstTradeDate || '';
+
+          // Load and draw performance vs ASX 200 chart
+          google.script.run
+            .withSuccessHandler(function (series) {
+              console.log('Stock chart series for', code, '=>', series && series.length, 'rows');
+              if (Array.isArray(series) && series.length > 1) {
+                window._stockChartSeries = series;
+                redrawStockChart();
+              } else {
+                window._stockChartSeries = null;
+                drawLineChart('stock-chart', [], 'Indexed to 100');
+              }
+            })
+            .withFailureHandler(function (err) {
+              console.error('getStockVsIndexSeries failed for', code, err && err.message, err);
+              window._stockChartSeries = null;
+              drawLineChart('stock-chart', [], 'Indexed to 100');
+            })
+            .getStockVsIndexSeries(code);
+        }).getStockSummary(code);
+
+        // Then load all trades/dividends and filter for this stock on the client
+        google.script.run
+          .withSuccessHandler(function (allTrades) {
+            var codeNorm = (code || '').toString().trim().toUpperCase();
+            var trades = (allTrades || []).filter(function (t) {
+              var stock = (t['Stock'] || '').toString().trim().toUpperCase();
+              return stock && stock === codeNorm;
+            });
+
+            // Apply date sort based on the dropdown (newest first by default)
+            var sortEl = document.getElementById('stock-sort-order');
+            var sortOrder = sortEl ? sortEl.value : 'desc';
+            trades.sort(function (a, b) {
+              var da = a['Date'] ? new Date(a['Date']) : new Date(0);
+              var db = b['Date'] ? new Date(b['Date']) : new Date(0);
+              return sortOrder === 'asc' ? (da - db) : (db - da);
+            });
+
+            window._debugTrades = trades;
+            console.log(
+              'StockDetails v6 (client filter): getAllTrades ->',
+              trades.length,
+              'rows for',
+              codeNorm
+            );
+
+            var tradeBody = document.querySelector('#stock-trades-table tbody');
+            var divBody = document.querySelector('#stock-divs-table tbody');
+            var tradesDebug = document.getElementById('stock-trades-debug');
+            var divsDebug = document.getElementById('stock-divs-debug');
+            if (tradeBody) tradeBody.innerHTML = '';
+            if (divBody) divBody.innerHTML = '';
+            if (tradesDebug) tradesDebug.textContent = '';
+            if (divsDebug) divsDebug.textContent = '';
+
+            var tradeCount = 0;
+            var divCount = 0;
+
+            (trades || []).forEach(function (t) {
+              var typeRaw = (t['Buy/Sell'] || '').toString().trim();
+              var typeUpper = typeRaw.toUpperCase();
+              var date = (t['Date'] || '').toString();
+              var qty = t['Number'] || '';
+              var price = Number(t['Price'] || 0);
+              var fees = Number(t['Brokerage'] || 0);
+              var totalCost = Number(t['Total Cost'] || 0);
+              var sellValue = Number(t['Sell Price'] || 0);
+              var dividend = Number(t['Dividend'] || 0);
+              var franking = Number(t['Franking'] || 0);
+              var unfranked = Number(t['Unfranked'] || 0);
+              var divPerShare = Number(t['Div/Share'] || 0);
+
+              if (typeUpper === 'BUY' || typeUpper === 'SELL' || typeUpper === 'DRP') {
+                if (!tradeBody) return;
+                var tr = document.createElement('tr');
+                tr.innerHTML =
+                  '<td>' + date + '</td>' +
+                  '<td>' + typeRaw + '</td>' +
+                  '<td class="numeric">' + qty + '</td>' +
+                  '<td class="numeric">' + formatCurrency(price) + '</td>' +
+                  '<td class="numeric">' + formatCurrency(fees) + '</td>' +
+                  '<td class="numeric">' + formatCurrency(totalCost) + '</td>' +
+                  '<td class="numeric">' + (typeUpper === 'SELL' ? formatCurrency(sellValue) : '') + '</td>';
+                tradeBody.appendChild(tr);
+                tradeCount++;
+              } else if (typeUpper === 'DIVIDEND') {
+                if (!divBody) return;
+                var gross = dividend + franking;
+                var net = dividend;
+                var trd = document.createElement('tr');
+                trd.innerHTML =
+                  '<td>' + date + '</td>' +
+                  '<td class="numeric">' + (divPerShare || '') + '</td>' +
+                  '<td class="numeric">' + formatCurrency(gross) + '</td>' +
+                  '<td class="numeric">' + formatCurrency(franking) + '</td>' +
+                  '<td class="numeric">' + formatCurrency(unfranked) + '</td>' +
+                  '<td class="numeric">' + formatCurrency(net) + '</td>';
+                divBody.appendChild(trd);
+                divCount++;
+              }
+            });
+
+            if (tradesDebug) {
+              tradesDebug.textContent = tradeCount > 0
+                ? ('Loaded ' + tradeCount + ' trade/adjustment rows for ' + code)
+                : ('No trades/adjustments found for ' + code);
+            }
+            if (divsDebug) {
+              divsDebug.textContent = divCount > 0
+                ? ('Loaded ' + divCount + ' dividend rows for ' + code)
+                : ('No dividends found for ' + code);
+            }
+          })
+          .getAllTradesSafe(code);
+      }
+
+      function initReportTaxView() {
+        var form = document.getElementById('tax-form');
+        if (!form) return;
+
+        var rangeEl = document.getElementById('tax-range');
+        var startInput = form.start;
+        var endInput = form.end;
+        var summaryEl = document.getElementById('tax-range-summary');
+
+        function formatDateForLabel(d) {
+          if (!d) return '';
+          var year = d.getFullYear();
+          var month = (d.getMonth() + 1).toString().padStart(2, '0');
+          var day = d.getDate().toString().padStart(2, '0');
+          return year + '-' + month + '-' + day;
+        }
+
+        function updateTaxRangeSummary() {
+          if (!summaryEl || !startInput || !endInput) return;
+          var startVal = startInput.valueAsDate || (startInput.value ? new Date(startInput.value) : null);
+          var endVal = endInput.valueAsDate || (endInput.value ? new Date(endInput.value) : null);
+          if (startVal && endVal) {
+            summaryEl.textContent = 'Range: ' + formatDateForLabel(startVal) + ' to ' + formatDateForLabel(endVal);
+          } else {
+            summaryEl.textContent = '';
+          }
+        }
+
+        function setTaxFyRange(mode) {
+          var now = new Date();
+          var year = now.getFullYear();
+          var month = now.getMonth(); // 0-based, July = 6
+          var fyStartYear = month >= 6 ? year : (year - 1);
+          if (mode === 'last-fy') {
+            fyStartYear -= 1;
+          }
+          var fyStart = new Date(fyStartYear, 6, 1); // 1 July
+          var fyEnd = new Date(fyStartYear + 1, 5, 30); // 30 June
+
+          if (startInput) startInput.valueAsDate = fyStart;
+          if (endInput) endInput.valueAsDate = fyEnd;
+
+          updateTaxRangeSummary();
+        }
+
+        if (rangeEl) {
+          rangeEl.addEventListener('change', function () {
+            var mode = rangeEl.value;
+            if (mode === 'this-fy' || mode === 'last-fy') {
+              setTaxFyRange(mode);
+            }
+            // For custom, leave dates as-is for manual editing.
+            updateTaxRangeSummary();
+          });
+
+          // Initialise to this financial year on load
+          setTaxFyRange('this-fy');
+        }
+
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var start = form.start.value;
+          var end = form.end.value;
+
+          updateTaxRangeSummary();
+
+          google.script.run.withSuccessHandler(function (report) {
+            document.getElementById('tax-dividends').textContent = formatCurrency(report.totalDividends);
+            document.getElementById('tax-franking').textContent = formatCurrency(report.totalFranking);
+            document.getElementById('tax-unfranked').textContent = formatCurrency(report.totalUnfranked);
+          }).getTaxReport(start, end);
+        });
+      }
+
+      function initReportCgtView() {
+        var form = document.getElementById('cgt-form');
+        if (!form) return;
+
+        var rangeEl = document.getElementById('cgt-range');
+        var startInput = form.start;
+        var endInput = form.end;
+        var summaryEl = document.getElementById('cgt-range-summary');
+
+        function formatDateForLabel(d) {
+          if (!d) return '';
+          var year = d.getFullYear();
+          var month = (d.getMonth() + 1).toString().padStart(2, '0');
+          var day = d.getDate().toString().padStart(2, '0');
+          return year + '-' + month + '-' + day;
+        }
+
+        function updateCgtRangeSummary() {
+          if (!summaryEl || !startInput || !endInput) return;
+          var startVal = startInput.valueAsDate || (startInput.value ? new Date(startInput.value) : null);
+          var endVal = endInput.valueAsDate || (endInput.value ? new Date(endInput.value) : null);
+          if (startVal && endVal) {
+            summaryEl.textContent = 'Range: ' + formatDateForLabel(startVal) + ' to ' + formatDateForLabel(endVal);
+          } else {
+            summaryEl.textContent = '';
+          }
+        }
+
+        function setFyRange(mode) {
+          var now = new Date();
+          var year = now.getFullYear();
+          var month = now.getMonth(); // 0-based, July = 6
+          var fyStartYear = month >= 6 ? year : (year - 1);
+          if (mode === 'last-fy') {
+            fyStartYear -= 1;
+          }
+          var fyStart = new Date(fyStartYear, 6, 1); // 1 July
+          var fyEnd = new Date(fyStartYear + 1, 5, 30); // 30 June
+
+          if (startInput) startInput.valueAsDate = fyStart;
+          if (endInput) endInput.valueAsDate = fyEnd;
+
+          updateCgtRangeSummary();
+        }
+
+        if (rangeEl) {
+          rangeEl.addEventListener('change', function () {
+            var mode = rangeEl.value;
+            if (mode === 'this-fy' || mode === 'last-fy') {
+              setFyRange(mode);
+            }
+            // For custom, leave dates as-is for manual editing
+            updateCgtRangeSummary();
+          });
+
+          // Initialise to this financial year on load
+          setFyRange('this-fy');
+        }
+
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var start = form.start.value;
+          var end = form.end.value;
+
+          updateCgtRangeSummary();
+
+          google.script.run.withSuccessHandler(function (report) {
+            document.getElementById('cgt-realised').textContent = formatCurrency(report.realisedGains);
+            document.getElementById('cgt-discounted').textContent = formatCurrency(report.discountedGains);
+            document.getElementById('cgt-short').textContent = formatCurrency(report.shortTermGains);
+            document.getElementById('cgt-long').textContent = formatCurrency(report.longTermGains);
+
+            var tbody = document.querySelector('#cgt-table tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            (report.entries || []).forEach(function (entry) {
+              var tr = document.createElement('tr');
+              tr.innerHTML =
+                '<td>' + (entry.date || '') + '</td>' +
+                '<td>' + (entry.stock || '') + '</td>' +
+                '<td class="numeric">' + (entry.quantity || '') + '</td>' +
+                '<td class="numeric">' + formatCurrency(entry.proceeds || 0) + '</td>' +
+                '<td class="numeric">' + formatCurrency(entry.costBase || 0) + '</td>' +
+                '<td class="numeric">' + formatCurrency(entry.gain || 0) + '</td>' +
+                '<td>' + (entry.discountApplied ? 'Yes' : 'No') + '</td>';
+              tbody.appendChild(tr);
+            });
+          }).getCgtReport(start, end);
+        });
+      }
+
+      function initAboutView() {
+        google.script.run.withSuccessHandler(function (status) {
+          var el = document.getElementById('about-history-status');
+          if (!el) return;
+
+          if (!status || !status.hasHistory) {
+            el.textContent = 'History sheet has no data yet.';
+          } else {
+            el.textContent = 'History is populated up to ' + status.lastDate + ' (' + status.lastRow + ' rows).';
+          }
+        }).getHistoryStatus();
+      }
+
+      function formatCurrency(value) {
+        var num = Number(value) || 0;
+        return new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(num);
+      }
+    </script>
+  </body>
+</html>
