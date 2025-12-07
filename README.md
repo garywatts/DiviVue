@@ -2,6 +2,18 @@
 _______________________________________________
 DiviVue is a lightweight, open-source stock portfolio tracker built using Google Sheets and Google Apps Script. The project was created as a free alternative to the many paid online portfolio trackers currently on the market. It leverages the power of the GOOGLEFINANCE function and a structured ledger system to provide a simple, transparent way to track your investments.
 
+<p align="center">
+  <a href="images/divivue-dashboard-example.png">
+    <img src="images/divivue-dashboard-example.png" width="220">
+  </a>
+  <a href="images/divivue-stock-details-example.png">
+    <img src="images/divivue-stock-details-example.png" width="220">
+  </a>
+  <a href="images/divivue-trades-adjustments-example.png">
+    <img src="images/divivue-trades-adjustments-example.png" width="220">
+  </a>
+</p>
+
 This tool is aimed at everyday investors who want something they can host and control themselves. I’m not a finance professional, and the current version is fairly basic in areas such as CGT and taxable income calculations — this is where I hope the community can help expand and improve the project over time.
 
 DiviVue is fully open-source, and contributions are welcome. If you find it useful, feel free to support the project via **[Buy Me a Coffee](https://www.buymeacoffee.com/garywatts)**
