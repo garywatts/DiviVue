@@ -6,6 +6,8 @@ This tool is aimed at everyday investors who want something they can host and co
 
 DiviVue is fully open-source, and contributions are welcome. If you find it useful, feel free to support the project via **[Buy Me a Coffee](https://www.buymeacoffee.com/garywatts)**
 
+See the Wiki above for install instructions <a href="https://github.com/garywatts/DiviVue/wiki">https://github.com/garywatts/DiviVue/wiki</a>
+
 🎯 **Project Goals**
 _______________________________________________
 Most core features have already been built, with more improvements planned. DiviVue currently aims to:
